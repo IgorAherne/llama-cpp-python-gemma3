@@ -3462,15 +3462,28 @@ class Gemma3ChatHandler(Llava15ChatHandler):
 
 
     def eval_image(self, llama: llama.Llama, image_url: str):
-        import llama_cpp
+        import llama_cpp 
 
-        n_tokens = 256
-        if llama.n_tokens + n_tokens > llama.n_ctx():
+        multimodal_token_id = 5  # Token ID for '[multimodal]' based on the GGUF dump
+        if llama.verbose:
+            print(f"Gemma3ChatHandler.eval_image: Evaluating multimodal token ID: {multimodal_token_id}", file=sys.stderr)
+        # Evaluate the special multimodal token *before* the image embeddings
+        # This increments llama.n_tokens by 1
+        llama.eval([multimodal_token_id]) 
+
+        n_patch_tokens = 256 # Number of "image patch tokens" for Gemma3
+        
+        # Check context size *after* evaluating the multimodal_token_id
+        # llama.n_tokens has now been incremented by 1
+        if llama.n_tokens + n_patch_tokens > llama.n_ctx():
             raise ValueError(
-                f"Prompt exceeds n_ctx: {llama.n_tokens + n_tokens} > {llama.n_ctx()}"
+                f"Prompt (text + multimodal_token + image_patches) exceeds n_ctx: "
+                f"{llama.n_tokens -1} (text) + 1 (mm_token) + {n_patch_tokens} (img_patches) > {llama.n_ctx()}"
             )
-
+        
         img_bytes = self.load_image(image_url)
+        
+        # Image loading and preprocessing logic (largely unchanged)
         img_u8_p = self._llava_cpp.clip_image_u8_init()
         if not self._llava_cpp.clip_image_load_from_bytes(
             ctypes.create_string_buffer(img_bytes, len(img_bytes)),
@@ -3488,7 +3501,8 @@ class Gemma3ChatHandler(Llava15ChatHandler):
             raise ValueError("Failed to preprocess image.")
 
         n_embd = llama_cpp.llama_model_n_embd(llama._model.model)
-        embed = (ctypes.c_float * (n_tokens * n_embd))()
+        # Array for embeddings (n_patch_tokens * n_embd)
+        embed = (ctypes.c_float * (n_patch_tokens * n_embd))() 
         if not self._llava_cpp.clip_image_batch_encode(self.clip_ctx, llama.n_threads, img_f32_p, embed):
             self._llava_cpp.clip_image_f32_batch_free(img_f32_p)
             self._llava_cpp.clip_image_u8_free(img_u8_p)
@@ -3496,29 +3510,37 @@ class Gemma3ChatHandler(Llava15ChatHandler):
 
         self._llava_cpp.clip_image_f32_batch_free(img_f32_p)
         self._llava_cpp.clip_image_u8_free(img_u8_p)
-        llama_cpp.llama_set_causal_attn(llama.ctx, False)
+        
+        llama_cpp.llama_set_causal_attn(llama.ctx, False) # Disable causal attention for image patches
 
-        seq_id_0 = (ctypes.c_int32 * 1)()
-        seq_ids = (ctypes.POINTER(ctypes.c_int32) * (n_tokens + 1))()
-        for i in range(n_tokens):
-            seq_ids[i] = seq_id_0
+        seq_id_0 = (ctypes.c_int32 * 1)() # Assuming single sequence for now
+        seq_ids_array = [seq_id_0] * n_patch_tokens # Pointer for each token
+        seq_ids = (ctypes.POINTER(ctypes.c_int32) * n_patch_tokens)(*seq_ids_array)
+
 
         batch = llama_cpp.llama_batch()
-        batch.n_tokens = n_tokens
-        batch.token = None
-        batch.embd = embed
-        batch.pos = (ctypes.c_int32 * n_tokens)(*[i + llama.n_tokens for i in range(n_tokens)])
+        batch.n_tokens = n_patch_tokens
+        batch.token = None # Crucial: tells llama_decode to use embeddings
+        batch.embd = embed # The image embeddings
+        
+        # Positions for these embedding tokens start *after* the '[multimodal]' token
+        # llama.n_tokens was already incremented by llama.eval([multimodal_token_id])
+        current_n_tokens = llama.n_tokens 
+        batch.pos = (ctypes.c_int32 * n_patch_tokens)(*[i + current_n_tokens for i in range(n_patch_tokens)]) 
+        
         batch.seq_id = seq_ids
-        batch.n_seq_id = (ctypes.c_int32 * n_tokens)(*([1] * n_tokens))
-        batch.logits = (ctypes.c_int8 * n_tokens)()
+        batch.n_seq_id = (ctypes.c_int32 * n_patch_tokens)(*([1] * n_patch_tokens)) # Each token belongs to 1 sequence ID
+        batch.logits = (ctypes.c_int8 * n_patch_tokens)() # Logits for image tokens not needed for output
 
         if llama_cpp.llama_decode(llama.ctx, batch):
-            raise ValueError("Failed to decode image.")
+            raise ValueError("Failed to decode image embeddings.")
 
-        llama_cpp.llama_set_causal_attn(llama.ctx, True)
-        # Required to avoid issues with hf tokenizer
-        llama.input_ids[llama.n_tokens : llama.n_tokens + n_tokens] = -1
-        llama.n_tokens += n_tokens
+        llama_cpp.llama_set_causal_attn(llama.ctx, True) # Restore causal attention
+        
+        # Mark these *embedding* token positions in input_ids as special (-1)
+        # The range for embedding tokens is [current_n_tokens, current_n_tokens + n_patch_tokens - 1]
+        llama.input_ids[current_n_tokens : current_n_tokens + n_patch_tokens] = -1
+        llama.n_tokens += n_patch_tokens # Advance n_tokens by the number of embedding tokens
 
 
 @register_chat_completion_handler("chatml-function-calling")

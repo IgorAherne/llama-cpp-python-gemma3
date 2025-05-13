@@ -4,13 +4,14 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>b4e8a556-d565-4a86-bbaa-ca719ab5773e</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>llama_cpp_python_gemma.py</StartupFile>
+    <StartupFile>test.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
     <OutputPath>.</OutputPath>
     <Name>llama-cpp-python-gemma</Name>
     <RootNamespace>llama-cpp-python-gemma</RootNamespace>
+    <InterpreterId>MSBuild|venv|C:\_myDrive\repos\auto-vlog\AutoVlogProj\AutoVlogProj.pyproj</InterpreterId>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -21,7 +22,56 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="llama_cpp_python_gemma.py" />
+    <Folder Include="llama_cpp\" />
+    <Folder Include="llama_cpp\lib\" />
+    <Folder Include="llama_cpp\server\" />
+    <Folder Include="scripts\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="llama_cpp\lib\ggml-base.dll" />
+    <Content Include="llama_cpp\lib\ggml-base.lib" />
+    <Content Include="llama_cpp\lib\ggml-cpu.dll" />
+    <Content Include="llama_cpp\lib\ggml-cpu.lib" />
+    <Content Include="llama_cpp\lib\ggml-cuda.dll" />
+    <Content Include="llama_cpp\lib\ggml-cuda.lib" />
+    <Content Include="llama_cpp\lib\ggml.dll" />
+    <Content Include="llama_cpp\lib\ggml.lib" />
+    <Content Include="llama_cpp\lib\llama.dll" />
+    <Content Include="llama_cpp\lib\llama.lib" />
+    <Content Include="llama_cpp\lib\llava.dll" />
+    <Content Include="llama_cpp\lib\llava.lib" />
+    <Content Include="llama_cpp\py.typed" />
+    <Content Include="scripts\get-releases.sh" />
+    <Content Include="scripts\releases-to-pep-503.sh" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="llama_cpp\llama.py" />
+    <Compile Include="llama_cpp\llama_cache.py" />
+    <Compile Include="llama_cpp\llama_chat_format.py" />
+    <Compile Include="llama_cpp\llama_cpp.py" />
+    <Compile Include="llama_cpp\llama_grammar.py" />
+    <Compile Include="llama_cpp\llama_speculative.py" />
+    <Compile Include="llama_cpp\llama_tokenizer.py" />
+    <Compile Include="llama_cpp\llama_types.py" />
+    <Compile Include="llama_cpp\llava_cpp.py" />
+    <Compile Include="llama_cpp\server\app.py" />
+    <Compile Include="llama_cpp\server\cli.py" />
+    <Compile Include="llama_cpp\server\errors.py" />
+    <Compile Include="llama_cpp\server\model.py" />
+    <Compile Include="llama_cpp\server\settings.py" />
+    <Compile Include="llama_cpp\server\types.py" />
+    <Compile Include="llama_cpp\server\__init__.py" />
+    <Compile Include="llama_cpp\server\__main__.py" />
+    <Compile Include="llama_cpp\_ctypes_extensions.py" />
+    <Compile Include="llama_cpp\_ggml.py" />
+    <Compile Include="llama_cpp\_internals.py" />
+    <Compile Include="llama_cpp\_logger.py" />
+    <Compile Include="llama_cpp\_utils.py" />
+    <Compile Include="llama_cpp\__init__.py" />
+    <Compile Include="test.py" />
+  </ItemGroup>
+  <ItemGroup>
+    <InterpreterReference Include="MSBuild|venv|C:\_myDrive\repos\auto-vlog\AutoVlogProj\AutoVlogProj.pyproj" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in
