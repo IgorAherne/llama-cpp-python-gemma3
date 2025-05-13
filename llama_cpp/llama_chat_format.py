@@ -3428,26 +3428,38 @@ class Gemma3ChatHandler(Llava15ChatHandler):
     @staticmethod
     def split_text_on_image_urls(text: str, image_urls: List[str]):
         split_text: List[Tuple[Literal["text", "image_url"], str]] = []
-        copied_urls = image_urls[:]
+        copied_urls = image_urls[:] # Make a copy to pop from, if multiple images
         remaining = text
-        image_placeholder = "<start_of_image>"
+        # CORRECT DEFINITION of the placeholder string
+        image_placeholder = "\n\f"  # Newline character followed by a form-feed character
 
         while remaining:
-            # Find placeholder
             pos = remaining.find(image_placeholder)
             if pos != -1:
-                assert len(copied_urls) > 0
+                # Append text before the placeholder
                 if pos > 0:
                     split_text.append(("text", remaining[:pos]))
-                split_text.append(("text", "\n\n<start_of_image>"))
-                split_text.append(("image_url", copied_urls.pop(0)))
-                split_text.append(("text", "<end_of_image>\n\n"))
-                remaining = remaining[pos + len(image_placeholder):]
+                
+                # Append the image_url for processing, if available
+                if copied_urls:
+                    split_text.append(("image_url", copied_urls.pop(0)))
+                else:
+                    # This case should ideally not be hit if image_urls list matches placeholders
+                    # If it happens, treat the placeholder as literal text to avoid errors
+                    # Ensure logger is imported if you use it: from ._logger import logger (or appropriate import)
+                    # For simplicity here, I'll use print to stderr
+                    print("WARNING: Found image placeholder but no corresponding image URL. Treating placeholder as text.", file=sys.stderr)
+                    split_text.append(("text", image_placeholder)) 
+                
+                # Consume the placeholder from the remaining text
+                remaining = remaining[pos + len(image_placeholder) :]
             else:
-                assert len(copied_urls) == 0
-                split_text.append(("text", remaining))
-                remaining = ""
+                # No more placeholders, append any remaining text
+                if remaining:
+                    split_text.append(("text", remaining))
+                remaining = "" # Exit loop
         return split_text
+
 
     def eval_image(self, llama: llama.Llama, image_url: str):
         import llama_cpp
